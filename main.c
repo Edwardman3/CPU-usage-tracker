@@ -40,44 +40,84 @@ void initQueue(){
 	dataReader->actualData.nMember = nMember;
 }
 
+
+void destroyQueue(struct queue *fromData){
+	struct queue* tempData;
+	struct queue* tempPrevData;
+	assert(fromData != NULL);
+	if(fromData != NULL){
+		tempData=fromData->nextData;
+		
+		while(fromData != NULL){
+			if(fromData->actualData.member != NULL) {
+				free(fromData->actualData.member);
+			}
+			tempPrevData = fromData->prevData;
+			free(fromData);
+			fromData = tempPrevData;
+		}
+		if(tempData != NULL){
+			tempData->nIter = 1;
+			tempData->prevData = NULL;
+			tempData = tempData->nextData;
+			while (tempData != NULL){
+				tempData->nIter = tempData->prevData->nIter + 1;
+				dataReader = tempData;
+				tempData = tempData->nextData;
+			}
+		}
+	}	
+}
+
+
 void addDataQueue(){
 	FILE* dataFile;
+	char line[200];
 	int counter_1 = 0;
 	int counter_2 = 0;
 	
 	dataFile = fopen("/proc/stat", "r");
+	fgets(line, 200, dataFile);
 	
 	while(counter_1 < nCore){
+		
+		if(dataReader == NULL){
+			dataReader=(struct queue*)malloc(sizeof(struct queue));
+			dataReader->prevData = NULL;
+			dataReader->nextData = NULL;
+			dataReader->nIter = 1;
+			dataReader->actualData.nMember = nMember;
+		}
+		else{
+			dataReader->nextData = malloc(sizeof(struct queue));
+			dataReader->nextData->prevData = dataReader;
+			dataReader = dataReader->nextData; //jump to next member
+			dataReader->nextData = NULL;
+			dataReader->actualData.nMember = nMember;
+			dataReader->nIter = dataReader->prevData->nIter + 1;
+		}
+		
 		fscanf(dataFile,"%s", dataReader->actualData.name);
 		dataReader->actualData.member = (unsigned long long int*)malloc(nMember * sizeof(unsigned long long int));
+		
 		while(counter_2 < nMember){
 			fscanf(dataFile,"%llu", &dataReader->actualData.member[counter_2]);
 			counter_2++;
-		}
-		dataReader->nextData = malloc(sizeof(struct queue));
-		dataReader->nextData->prevData = dataReader;
-		dataReader = dataReader->nextData; //jump to next member
-		dataReader->nextData = NULL;
-		dataReader->actualData.nMember = nMember;
-		dataReader->nIter = dataReader->prevData->nIter + 1;
-		
+		}		
 		counter_2=0;
 		counter_1++;
 	}
+	fclose(dataFile);
 }
 	
-
 void printStat(){
 	int counter_1 = 0;
 	int counter_2 = 0;
-	puts("a");
-	struct queue* tempReader = dataReader->prevData;
-	puts("a");
+	struct queue* tempReader = dataReader;
 	assert(nCore > 0);
 	assert(tempReader != NULL);
-	puts("a");
 	while(counter_1 < nCore) {
-		printf("%s ", tempReader->actualData.name);
+		printf("%3d %s ", tempReader->nIter, tempReader->actualData.name);
 		while(counter_2 < tempReader->actualData.nMember) {
 			printf("%llu ", tempReader->actualData.member[counter_2]);
 			counter_2++;
@@ -88,12 +128,44 @@ void printStat(){
 		counter_2 = 0;
 	}
 }
-/*
-void rewindData(int nIter){
-	while(){
+
+
+
+void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3,-4... iter to top
+	int done = 1;
+	int counter = 1;
+	while(done){
+		if(nIter > 0){
+			if((dataReader->prevData != NULL) && (counter <= nIter)){
+				dataReader = dataReader->prevData;
+			}
+			else{
+				done = 0;
+			}
+		}
+		else{
+			if(nIter < 0){
+				if((dataReader->nextData != NULL) && (counter <= (-1)*nIter)){
+					dataReader = dataReader->nextData;
+				}
+				else{
+					done = 0;
+				}
+			}
+			else{
+				if(dataReader->nextData != NULL){
+					dataReader = dataReader->nextData;
+				}
+				else{
+					done = 0;
+				}
+			}
+		}
+		counter++;
 	}
 }
-*/
+
+
 
 void initialArray()
 {
@@ -352,18 +424,36 @@ void *threadPrinter(){
 
 
 int main(int argc, char* argv[]) {
-	initQueue();
-	puts("test");
-	addDataQueue();
-	puts("test");
-	printStat();
-	puts("test");
-	sleep(1);
+	
+	
 	addDataQueue();
 	printStat();
 	sleep(1);
 	addDataQueue();
 	printStat();
+	sleep(1);
+	addDataQueue();
+	printStat();
+	
+	rewindData(3);
+	printf("ILOSC DANYCH po przewinieciu: %d \n", dataReader->nIter);
+	printStat();
+	rewindData(0);
+	printf("ILOSC DANYCH: %d \n", dataReader->nIter);
+	printStat();
+	printf("ILOSC DANYCH: %d \n", dataReader->nIter);
+	printf("poprzedni: %p | nastepnt: %p | iter: %d \n", dataReader->prevData->prevData, dataReader->prevData->nextData, dataReader->prevData->nIter);
+	assert(dataReader != NULL);
+	destroyQueue(dataReader->prevData->prevData->prevData->prevData);
+	printf("poprzedni: %p | nastepnt: %p | iter: %d \n", dataReader->prevData, dataReader->nextData, dataReader->nIter);
+	puts("Po usunieciu");
+	printStat();
+	//printf("poprzedni: %p | nastepnt: %p | iter: %d", dataReader->prevData, dataReader->nextData, dataReader->nIter);
+	printf(" %p \n", dataReader);
+	destroyQueue(dataReader);
+	printf(" %p \n", dataReader);
+	//destroyQueue(dataReader);
+	//printf(" %p \n", dataReader);
 	//int testIteration = 0;
 	/*
 	 * struct sigaction action;

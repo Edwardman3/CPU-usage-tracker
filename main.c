@@ -6,8 +6,9 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <errno.h>
 
-
+#define MAX_SIZE_OF_QUEUE 200
 
 volatile sig_atomic_t done = 0;
 int nCore = 4;
@@ -69,68 +70,6 @@ void destroyQueue(struct queue *fromData){
 	}	
 }
 
-
-void addDataQueue(){
-	FILE* dataFile;
-	char line[200];
-	int counter_1 = 0;
-	int counter_2 = 0;
-	
-	dataFile = fopen("/proc/stat", "r");
-	fgets(line, 200, dataFile);
-	
-	while(counter_1 < nCore){
-		
-		if(dataReader == NULL){
-			dataReader=(struct queue*)malloc(sizeof(struct queue));
-			dataReader->prevData = NULL;
-			dataReader->nextData = NULL;
-			dataReader->nIter = 1;
-			dataReader->actualData.nMember = nMember;
-		}
-		else{
-			dataReader->nextData = malloc(sizeof(struct queue));
-			dataReader->nextData->prevData = dataReader;
-			dataReader = dataReader->nextData; //jump to next member
-			dataReader->nextData = NULL;
-			dataReader->actualData.nMember = nMember;
-			dataReader->nIter = dataReader->prevData->nIter + 1;
-		}
-		
-		fscanf(dataFile,"%s", dataReader->actualData.name);
-		dataReader->actualData.member = (unsigned long long int*)malloc(nMember * sizeof(unsigned long long int));
-		
-		while(counter_2 < nMember){
-			fscanf(dataFile,"%llu", &dataReader->actualData.member[counter_2]);
-			counter_2++;
-		}		
-		counter_2=0;
-		counter_1++;
-	}
-	fclose(dataFile);
-}
-	
-void printStat(){
-	int counter_1 = 0;
-	int counter_2 = 0;
-	struct queue* tempReader = dataReader;
-	assert(nCore > 0);
-	assert(tempReader != NULL);
-	while(counter_1 < nCore) {
-		printf("%3d %s ", tempReader->nIter, tempReader->actualData.name);
-		while(counter_2 < tempReader->actualData.nMember) {
-			printf("%llu ", tempReader->actualData.member[counter_2]);
-			counter_2++;
-		}
-		tempReader = tempReader->prevData;
-		puts("");
-		counter_1++;
-		counter_2 = 0;
-	}
-}
-
-
-
 void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3,-4... iter to top
 	int done = 1;
 	int counter = 1;
@@ -166,6 +105,83 @@ void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3
 }
 
 
+int addDataQueue(){
+	FILE* dataFile;
+	char line[200];
+	int counter_1 = 0;
+	int counter_2 = 0;
+	
+	errno = 0;
+	dataFile = fopen("/proc/stat", "r");
+	if (errno != 0){
+		perror("Error occured. File not open");
+		return 1;
+	}
+	
+	fgets(line, 200, dataFile);
+	
+	//Cleaning old data of Queue
+	
+	puts("START");
+	while(counter_1 < nCore){
+		
+		if(dataReader == NULL){
+			dataReader=(struct queue*)malloc(sizeof(struct queue));
+			assert(dataReader != NULL);
+			dataReader->prevData = NULL;
+			dataReader->nextData = NULL;
+			dataReader->nIter = 1;
+			dataReader->actualData.nMember = nMember;
+		}
+		else{
+			if (dataReader->nIter == MAX_SIZE_OF_QUEUE){
+				rewindData(MAX_SIZE_OF_QUEUE - 4);
+				printf("%d \n", dataReader->nIter);
+				destroyQueue(dataReader);
+				rewindData(0);
+				printf("%d \n", dataReader->nIter);
+			}
+			dataReader->nextData = malloc(sizeof(struct queue));
+			assert(dataReader->nextData != NULL);
+			dataReader->nextData->prevData = dataReader;
+			dataReader = dataReader->nextData; //jump to next member
+			dataReader->nextData = NULL;
+			dataReader->actualData.nMember = nMember;
+			dataReader->nIter = dataReader->prevData->nIter + 1;
+		}
+		
+		fscanf(dataFile,"%s", dataReader->actualData.name);
+		dataReader->actualData.member = (unsigned long long int*)malloc(nMember * sizeof(unsigned long long int));
+		
+		while(counter_2 < nMember){
+			fscanf(dataFile,"%llu", &dataReader->actualData.member[counter_2]);
+			counter_2++;
+		}		
+		counter_2=0;
+		counter_1++;
+	}
+	fclose(dataFile);
+	return 0;
+}
+	
+void printStat(){
+	int counter_1 = 0;
+	int counter_2 = 0;
+	struct queue* tempReader = dataReader;
+	assert(nCore > 0);
+	assert(tempReader != NULL);
+	while(counter_1 < nCore) {
+		printf("%3d %s ", tempReader->nIter, tempReader->actualData.name);
+		while(counter_2 < tempReader->actualData.nMember) {
+			printf("%llu ", tempReader->actualData.member[counter_2]);
+			counter_2++;
+		}
+		tempReader = tempReader->prevData;
+		puts("");
+		counter_1++;
+		counter_2 = 0;
+	}
+}
 
 void initialArray()
 {
@@ -426,6 +442,16 @@ void *threadPrinter(){
 int main(int argc, char* argv[]) {
 	
 	
+	int counter_main = 0;
+	
+	while(counter_main < 200){
+		addDataQueue();
+		printf("Iter: %d ILOSC DANYCH: %d \n", counter_main,dataReader->nIter);
+		counter_main++;
+	}	
+	destroyQueue(dataReader);
+	/*
+	
 	addDataQueue();
 	printStat();
 	sleep(1);
@@ -455,6 +481,7 @@ int main(int argc, char* argv[]) {
 	//destroyQueue(dataReader);
 	//printf(" %p \n", dataReader);
 	//int testIteration = 0;
+	*/
 	/*
 	 * struct sigaction action;
 	memset(&action, 0, sizeof(struct sigaction));

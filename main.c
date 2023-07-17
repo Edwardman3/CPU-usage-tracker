@@ -67,7 +67,7 @@ void destroyQueue(struct queue *fromData){
 		
 void stopProgram(int sig){
 	done = 0;
-	puts("CTR + C detected");
+	puts("\n CTR + C detected \n");
 }
 
 void initQueue(){
@@ -79,15 +79,15 @@ void initQueue(){
 }
 
 void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3,-4... iter to top
-	int done = 1;
+	int rewind_done = 1;
 	int counter = 1;
-	while(done){
+	while(rewind_done){
 		if(nIter > 0){
 			if((dataReader->prevData != NULL) && (counter <= nIter)){
 				dataReader = dataReader->prevData;
 			}
 			else{
-				done = 0;
+				rewind_done = 0;
 			}
 		}
 		else{
@@ -96,7 +96,7 @@ void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3
 					dataReader = dataReader->nextData;
 				}
 				else{
-					done = 0;
+					rewind_done = 0;
 				}
 			}
 			else{
@@ -104,7 +104,7 @@ void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3
 					dataReader = dataReader->nextData;
 				}
 				else{
-					done = 0;
+					rewind_done = 0;
 				}
 			}
 		}
@@ -167,25 +167,6 @@ int addDataQueue(){
 	fclose(dataFile);
 	return 0;
 }
-	
-void printStat(){
-	int counter_1 = 0;
-	int counter_2 = 0;
-	struct queue* tempReader = dataReader;
-	assert(nCore > 0);
-	assert(tempReader != NULL);
-	while(counter_1 < nCore) {
-		printf("%3d %s ", tempReader->nIter, tempReader->actualData.name);
-		while(counter_2 < tempReader->actualData.nMember) {
-			printf("%llu ", tempReader->actualData.member[counter_2]);
-			counter_2++;
-		}
-		tempReader = tempReader->prevData;
-		puts("");
-		counter_1++;
-		counter_2 = 0;
-	}
-}
 
 void initialArray(){
 	assert(nCore > 0);
@@ -246,7 +227,6 @@ void freeArray(){
 	free(ArrayOfData);
 }
 
-
 int checkData() {
 	FILE* data = NULL;
 	char line[200];
@@ -289,7 +269,7 @@ void checkDataTest() {
 	int b = 0;
 	checkData(&a, &b);
 	assert(a > 0 && b > 0);
-	assert(a == 4);			//spec value for my system
+	assert(a == 6);			//spec value for my system
 	assert(b == 10); 		//spec value for my system
 }
 
@@ -297,51 +277,6 @@ void makeDataOld(){
 	CPUstat* temp = ArrayOfData[0];
 	ArrayOfData[0] = ArrayOfData[1];
 	ArrayOfData[1] = temp;
-}
-
-void getData() {
-	FILE* data;
-	char line[200];
-	int counter_1 = 0;
-	int counter_2 = 0;
-	
-	
-	data = fopen("/proc/stat", "r");
-	
-	assert(data != NULL);
-	
-	makeDataOld();
-	
-	fgets(line, 200, data);
-	
-	while(counter_1 < nCore) {
-		fscanf(data,"%s", ArrayOfData[0][counter_1].name);
-		while(counter_2 < ArrayOfData[0][counter_1].nMember) {
-			fscanf(data,"%llu", ArrayOfData[0][counter_1].member+counter_2);
-			counter_2++;
-		}
-		counter_1++;
-		counter_2 = 0;
-	}
-	fclose(data);
-}
-
-void printCPUstat(int dtype) { // dtype - data type 1 - old 0 - new;
-	int counter_1 = 0;
-	int counter_2 = 0;
-	
-	assert(nCore > 0);
-	
-	while(counter_1 < nCore) {
-		printf("%s ", ArrayOfData[dtype][counter_1].name);
-		while(counter_2 < ArrayOfData[dtype][counter_1].nMember) {
-			printf("%llu ", ArrayOfData[dtype][counter_1].member[counter_2]);
-			counter_2++;
-		}
-		puts("");
-		counter_1++;
-		counter_2 = 0;
-	}
 }
 
 void setColor(double value, double levelA, double levelB, double levelC, double levelD){
@@ -379,33 +314,23 @@ void printCPUusage(){
 	printf("\033[0m");
 }
 
-/*
-	0	|1	 |2		|3	 |4		|5	|6		|7	  |8	|9 
-	user|nice|system|idle|iowait|irq|softirq|steal|guest|guestnice
-	 
-	0 - new data
-	1 - old data
-*/
-
 void getArrayFromQueue(){
 	int temp_rewind_iter = 0;
 	int counter_1 = 0;
 	int	counter_2 = 0;
-	//puts("check");
-	rewindData(4);
-	//printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
+	
+	rewindData(nCore);
+	
 	if(dataReader == NULL){	
 		rewindData(1);
-		//puts("rewind");
+		
 	}
-	//printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
-	while((dataReader->nIter % 4 != 0) && (dataReader->actualData.member!=NULL)){
+	
+	while((dataReader->nIter % nCore != 0) && (dataReader->actualData.member!=NULL)){
 		rewindData(1);
-		//puts("rewind");
+		
 	}
-	//printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
 	while(counter_1 < nCore) {
-		//printf("Liczba danych: %d , nastepne dane: %p \n",dataReader->nIter, dataReader->nextData);
 		strcpy(ArrayOfData[0][counter_1].name, dataReader->actualData.name);
 		while(counter_2 < ArrayOfData[0][counter_1].nMember) {
 			ArrayOfData[0][counter_1].member[counter_2] = dataReader->actualData.member[counter_2];
@@ -422,7 +347,7 @@ void getArrayFromQueue(){
 	rewindData(temp_rewind_iter);
 	
 	while(counter_1 < nCore) {
-		//printf("Liczba danych: %d , nastepne dane: %p \n",dataReader->nIter, dataReader->nextData);
+		
 		strcpy(ArrayOfData[1][counter_1].name, dataReader->actualData.name);
 		while(counter_2 < ArrayOfData[1][counter_1].nMember) {
 			ArrayOfData[1][counter_1].member[counter_2] = dataReader->actualData.member[counter_2];
@@ -433,16 +358,21 @@ void getArrayFromQueue(){
 		counter_2 = 0;
 	}
 	rewindData((-1)*(temp_rewind_iter+(2*nCore)-1));
-	//printf("Liczba danych: %d , nastepne dane: %p \n",dataReader->nIter, dataReader->nextData);
-	//puts("Przed zniszczeniem");
+
 	destroyQueue(dataReader);
-	//printf("Liczba danych: %d , nastepne dane: %p \n",dataReader->nIter, dataReader->nextData);
+
 	rewindData(0);
-	//printf("Liczba danych: %d , nastepne dane: %p \n",dataReader->nIter, dataReader->nextData);
-	//puts("KONIEC");
+
 }
 
 void calcCPUusage(){
+	/*
+	0	|1	 |2		|3	 |4		|5	|6		|7	  |8	|9 
+	user|nice|system|idle|iowait|irq|softirq|steal|guest|guestnice
+	 
+	0 - new data
+	1 - old data
+	*/	
 	unsigned long long int PrevIdle 	= 0;
 	unsigned long long int Idle 		= 0;
 	unsigned long long int PrevNonIdle 	= 0;
@@ -472,7 +402,12 @@ void calcCPUusage(){
 		
 		assert(totald > 0);
 		pthread_mutex_lock(&lock);
-		ArrayOfData[0][i].usage = 100*(totald - idled)/(double)totald;
+		if(totald != 0){
+			ArrayOfData[0][i].usage = 100*(totald - idled)/(double)totald;
+		}
+		else{
+			ArrayOfData[0][i].usage = 0;
+		}
 		pthread_mutex_unlock(&lock);
 	}
 }
@@ -495,19 +430,18 @@ void *threadAnalyzer(){
 }
 
 void *threadPrinter(){
-	//puts("T3");
 	pthread_mutex_lock(&lock);
 	printCPUusage();
 	pthread_mutex_unlock(&lock);
 	return NULL;
 }
-/*
+
+//I dont know why but more then 3 thread wasnt working :/ 
+
 void *threadWatchdog(){
 	
-	
-	
 	return NULL;
-}*/
+}
 
 void testAnalyzer(){
 	
@@ -540,7 +474,10 @@ int main(int argc, char* argv[]) {
 	done = 1;
 	signal(SIGINT, stopProgram);
 	checkData();
+	assert(nCore > 0);
+	assert(nMember > 0);
 	initialArray();
+	assert(ArrayOfData != NULL);
 	
 	if (pthread_mutex_init(&lock, NULL) != 0)
 	{
@@ -554,7 +491,7 @@ int main(int argc, char* argv[]) {
 			pthread_create(&(th[0]), NULL, &threadReader, NULL);
 			time_of_work[0] = time(NULL);
 		}
-
+		
 		if (pthread_join(th[1], NULL) != 0 ){
 			pthread_create(&(th[1]), NULL, &threadAnalyzer, NULL);
 			time_of_work[1] = time(NULL);
@@ -564,16 +501,16 @@ int main(int argc, char* argv[]) {
 			pthread_create(&(th[2]), NULL, &threadPrinter, NULL);
 			time_of_work[2] = time(NULL);
 		}
-		
-		/*if (pthread_join(th[3], NULL) != 0 ){
+/*
+		if (pthread_join(th[3], NULL) != 0 ){
 			pthread_create(&(th[3]), NULL, &threadWatchdog, NULL);
 			time_of_work[3] = time(NULL);
-		}*/
-		
+		}
+	*/	
 	}
 	
 
-	while(counter_task < 5){
+	while(counter_task < 3){
 		while(ended_task[counter_task] == 0){
 			ended_task[counter_task] = pthread_join(th[counter_task], NULL);
 			if (ended_task[counter_task]){
@@ -585,10 +522,10 @@ int main(int argc, char* argv[]) {
 	
 	
 	pthread_mutex_destroy(&lock);
-	//printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
 	destroyQueue(dataReader);
 	freeArray();
-	puts("im OUT");
-	sleep(100);
+	
+	puts("Closing the program!");
+	
 	return 0;
 }

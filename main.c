@@ -8,9 +8,7 @@
 #include <signal.h>
 #include <errno.h>
 
-#define MAX_SIZE_OF_QUEUE 20100
-
-
+#define MAX_SIZE_OF_QUEUE 20000
 
 typedef struct ProcStat 
 {
@@ -29,7 +27,9 @@ struct queue {
 
 CPUstat** ArrayOfData;
 struct queue* dataReader;
+pthread_t th[5];
 pthread_mutex_t lock;
+clock_t time_of_work[5];
 volatile sig_atomic_t done = 0;
 int nCore;
 int nMember;
@@ -478,38 +478,44 @@ void calcCPUusage(){
 }
 
 void *threadReader(){
-	puts("T1");
 	addDataQueue();
 	return NULL;
 }
 
 void *threadAnalyzer(){
-	puts("T2");
-	if (dataReader->nIter >= 10000){
-		assert(dataReader->nIter >= 10000);
-		puts("T2.2");
-		pthread_mutex_lock(&lock);
-		getArrayFromQueue();
-		assert(dataReader->nIter < 20000);
-		pthread_mutex_unlock(&lock);
-		calcCPUusage();
+	if (dataReader != NULL){
+		if (dataReader->nIter >= 5000){
+			pthread_mutex_lock(&lock);
+			getArrayFromQueue();
+			pthread_mutex_unlock(&lock);
+			calcCPUusage();
+		}
 	}
 	return NULL;
 }
 
 void *threadPrinter(){
-	puts("T3");
+	//puts("T3");
 	pthread_mutex_lock(&lock);
 	printCPUusage();
 	pthread_mutex_unlock(&lock);
 	return NULL;
 }
+/*
+void *threadWatchdog(){
+	
+	
+	
+	return NULL;
+}*/
 
 void testAnalyzer(){
 	
 	int count = 40000;
 	checkData();
+	assert(dataReader != NULL);
 	initialArray();
+	assert(ArrayOfData != NULL);
 	while(count>0){
 		addDataQueue();
 		count--;
@@ -525,15 +531,13 @@ void testAnalyzer(){
 }
 
 int main(int argc, char* argv[]) {
-	
-	//testAnalyzer();
-	
-	done = 1;
 	int counter_task = 0;
 	int ended_task [5] ={0,0,0,0,0};
+	
 	pthread_t th[5];
 	clock_t time_of_work[5];
 	
+	done = 1;
 	signal(SIGINT, stopProgram);
 	checkData();
 	initialArray();
@@ -543,25 +547,28 @@ int main(int argc, char* argv[]) {
 		printf("MUTES INIT FAILED!!!");
 		return 1;
 	}
-	
-	time_of_work[2] = clock();
-
+	time_of_work[2] = time(NULL);
 	while(done)
 	{
 		if (pthread_join(th[0], NULL) != 0 ){
 			pthread_create(&(th[0]), NULL, &threadReader, NULL);
-			time_of_work[0] = clock();
+			time_of_work[0] = time(NULL);
 		}
 
 		if (pthread_join(th[1], NULL) != 0 ){
 			pthread_create(&(th[1]), NULL, &threadAnalyzer, NULL);
-			time_of_work[1] = clock();
+			time_of_work[1] = time(NULL);
 		}
 		
-		if ((pthread_join(th[2], NULL) != 0 ) && (clock()-time_of_work[2] > 2000)){
+		if ((pthread_join(th[2], NULL) != 0 ) && (time(NULL)-time_of_work[2] >= 1)){
 			pthread_create(&(th[2]), NULL, &threadPrinter, NULL);
-			time_of_work[2] = clock();
+			time_of_work[2] = time(NULL);
 		}
+		
+		/*if (pthread_join(th[3], NULL) != 0 ){
+			pthread_create(&(th[3]), NULL, &threadWatchdog, NULL);
+			time_of_work[3] = time(NULL);
+		}*/
 		
 	}
 	

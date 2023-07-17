@@ -10,12 +10,13 @@
 
 #define MAX_SIZE_OF_QUEUE 20000
 
+
 typedef struct ProcStat 
 {
 	char name[5];					// Name of CPU
 	unsigned long long int* member;	// Array of data for one CPU 
 	int nMember;					// Count of data for one CPU
-	float usage;					// Procent usage of CPU
+	double usage;					// Procent usage of CPU
 } CPUstat;
 
 struct queue {
@@ -25,16 +26,17 @@ struct queue {
 	int nIter;						// id of the data
 };
 
-CPUstat** ArrayOfData;
-struct queue* dataReader;
-pthread_t th[5];
-pthread_mutex_t lock;
-clock_t time_of_work[5];
-volatile sig_atomic_t done = 0;
-int nCore;
-int nMember;
 
-void destroyQueue(struct queue *fromData){
+static CPUstat** ArrayOfData;
+static struct queue* dataReader;
+static pthread_t th[5];
+static pthread_mutex_t lock;
+static clock_t time_of_work[5];
+static volatile sig_atomic_t done = 0;
+static int nCore;
+static int nMember;
+
+static void destroyQueue(struct queue *fromData){
 	struct queue* tempData;
 	struct queue* tempPrevData;
 	assert(fromData != NULL);
@@ -65,20 +67,13 @@ void destroyQueue(struct queue *fromData){
 	}
 }
 		
-void stopProgram(int sig){
+static  void stopProgram(int sig){
 	done = 0;
+	printf("Signal: %d", sig);
 	puts("\n CTR + C detected \n");
 }
 
-void initQueue(){
-	dataReader=(struct queue*)malloc(sizeof(struct queue));
-	dataReader->prevData = NULL;
-	dataReader->nextData = NULL;
-	dataReader->nIter = 1;
-	dataReader->actualData.nMember = nMember;
-}
-
-void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3,-4... iter to top
+static void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3,-4... iter to top
 	int rewind_done = 1;
 	int counter = 1;
 	while(rewind_done){
@@ -112,7 +107,7 @@ void rewindData(int nIter){ // 0 set to the top, 1,2,3.. iter to down, -1, -2,-3
 	}
 }
 
-int addDataQueue(){
+static int addDataQueue(){
 	FILE* dataFile;
 	char line[200];
 	int counter_1 = 0;
@@ -155,7 +150,7 @@ int addDataQueue(){
 		}
 		
 		fscanf(dataFile,"%s", dataReader->actualData.name);
-		dataReader->actualData.member = (unsigned long long int*)malloc(nMember * sizeof(unsigned long long int));
+		dataReader->actualData.member = (unsigned long long int*)malloc((unsigned long)nMember * sizeof(unsigned long long int));
 		
 		while(counter_2 < nMember){
 			fscanf(dataFile,"%llu", &dataReader->actualData.member[counter_2]);
@@ -168,16 +163,17 @@ int addDataQueue(){
 	return 0;
 }
 
-void initialArray(){
-	assert(nCore > 0);
+static void initialArray(){
+	
 	int counter_1 = 0;
 	int counter_2 = 0;
+	assert(nCore > 0);
 	
 	ArrayOfData = (CPUstat **)calloc(2, sizeof(CPUstat *));
 	if (ArrayOfData != NULL){
 		
 		while(counter_1 < 2){
-			*(ArrayOfData+counter_1) = (CPUstat*)calloc(nCore ,sizeof(CPUstat));
+			*(ArrayOfData+counter_1) = (CPUstat*)calloc((unsigned long)nCore ,sizeof(CPUstat));
 			
 			if (*(ArrayOfData+counter_1) == NULL ){
 				
@@ -191,7 +187,7 @@ void initialArray(){
 				
 				while(counter_2 < nCore){
 					(*(ArrayOfData+counter_1)+counter_2)->nMember = nMember;
-					(*(ArrayOfData+counter_1)+counter_2)->member = (unsigned long long int*)calloc((*(ArrayOfData+counter_1)+counter_2)->nMember, sizeof(unsigned long long int));
+					(*(ArrayOfData+counter_1)+counter_2)->member = (unsigned long long int*)calloc((unsigned long)(*(ArrayOfData+counter_1)+counter_2)->nMember, sizeof(unsigned long long int));
 					
 					if ((*(ArrayOfData+counter_1)+counter_2)->member == NULL) {
 						free(	((*(ArrayOfData + counter_1))+counter_2)	);
@@ -209,11 +205,11 @@ void initialArray(){
 	}
 }
 
-void freeArray(){
-	assert(nCore > 0);
+static void freeArray(){
+	
 	int counter_1 = 0;
 	int counter_2 = 0;
-	
+	assert(nCore > 0);
 	while(counter_1 < 2)
 	{
 		while(counter_2 < nCore) {
@@ -227,7 +223,7 @@ void freeArray(){
 	free(ArrayOfData);
 }
 
-int checkData() {
+static int checkData() {
 	FILE* data = NULL;
 	char line[200];
 	int counter = 0;
@@ -264,22 +260,26 @@ int checkData() {
 	return 0;
 }
 
+/*
 void checkDataTest() {
 	int a = 0;
 	int b = 0;
-	checkData(&a, &b);
+	checkData();
 	assert(a > 0 && b > 0);
 	assert(a == 6);			//spec value for my system
 	assert(b == 10); 		//spec value for my system
 }
+*/
 
-void makeDataOld(){
+/*
+void makeDataOld(void){
 	CPUstat* temp = ArrayOfData[0];
 	ArrayOfData[0] = ArrayOfData[1];
 	ArrayOfData[1] = temp;
 }
+*/
 
-void setColor(double value, double levelA, double levelB, double levelC, double levelD){
+static void setColor(double value, double levelA, double levelB, double levelC, double levelD){
 	if (value >= levelA && value < levelB){
 		printf("\033[0;32m");
 	}
@@ -303,7 +303,7 @@ void setColor(double value, double levelA, double levelB, double levelC, double 
 	}
 }
 
-void printCPUusage(){
+static void printCPUusage(){
 	int counter = 0;
 	system("clear");
 	while(counter <nCore){
@@ -314,7 +314,7 @@ void printCPUusage(){
 	printf("\033[0m");
 }
 
-void getArrayFromQueue(){
+static void getArrayFromQueue(){
 	int temp_rewind_iter = 0;
 	int counter_1 = 0;
 	int	counter_2 = 0;
@@ -365,7 +365,7 @@ void getArrayFromQueue(){
 
 }
 
-void calcCPUusage(){
+static void calcCPUusage(){
 	/*
 	0	|1	 |2		|3	 |4		|5	|6		|7	  |8	|9 
 	user|nice|system|idle|iowait|irq|softirq|steal|guest|guestnice
@@ -403,7 +403,7 @@ void calcCPUusage(){
 		assert(totald > 0);
 		pthread_mutex_lock(&lock);
 		if(totald != 0){
-			ArrayOfData[0][i].usage = 100*(totald - idled)/(double)totald;
+			ArrayOfData[0][i].usage = 100*(double)(totald - idled)/(double)totald;
 		}
 		else{
 			ArrayOfData[0][i].usage = 0;
@@ -412,12 +412,12 @@ void calcCPUusage(){
 	}
 }
 
-void *threadReader(){
+static void *threadReader(){
 	addDataQueue();
 	return NULL;
 }
 
-void *threadAnalyzer(){
+static void *threadAnalyzer(){
 	if (dataReader != NULL){
 		if (dataReader->nIter >= 5000){
 			pthread_mutex_lock(&lock);
@@ -429,7 +429,7 @@ void *threadAnalyzer(){
 	return NULL;
 }
 
-void *threadPrinter(){
+static void *threadPrinter(){
 	pthread_mutex_lock(&lock);
 	printCPUusage();
 	pthread_mutex_unlock(&lock);
@@ -437,13 +437,15 @@ void *threadPrinter(){
 }
 
 //I dont know why but more then 3 thread wasnt working :/ 
-
-void *threadWatchdog(){
+/*
+static void *threadWatchdog(){
 	
 	return NULL;
 }
+*/
 
-void testAnalyzer(){
+/*
+void testAnalyzer(void){
 	
 	int count = 40000;
 	checkData();
@@ -454,22 +456,23 @@ void testAnalyzer(){
 		addDataQueue();
 		count--;
 	}
-	printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
+	//printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
 	getArrayFromQueue();
-	printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
+	//printf("Liczba danych: %d , nastepne dane: %p \n ",dataReader->nIter, dataReader->nextData);
 	calcCPUusage();
-    printf("Liczba danych: %d , nastepne dane: %p , poprzednie dane: %p \n ",dataReader->nIter, dataReader->nextData, dataReader->prevData);
+    //printf("Liczba danych: %d , nastepne dane: %p , poprzednie dane: %p \n ",dataReader->nIter, dataReader->nextData, dataReader->prevData);
 	printCPUusage();
-	puts("test END");
+	//puts("test END");
 	addDataQueue();
 }
+*/ 
 
-int main(int argc, char* argv[]) {
+int main(void) {
 	int counter_task = 0;
 	int ended_task [5] ={0,0,0,0,0};
 	
-	pthread_t th[5];
-	clock_t time_of_work[5];
+	//pthread_t th[5];
+	//clock_t time_of_work[5];
 	
 	done = 1;
 	signal(SIGINT, stopProgram);
